@@ -3,3 +3,4 @@ old_v1.py
 __pycache__/
 *.pyc
 *$py.class
+face.py

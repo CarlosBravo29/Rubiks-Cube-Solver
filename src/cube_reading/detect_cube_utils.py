@@ -11,9 +11,6 @@ def get_canny(frame):
     return canny, closed
 
 def cube_mask(closed_img, min_area=5000):
-    #kernel = cv.getStructuringElement(cv.MORPH_RECT, (9, 9))
-    #closed = cv.morphologyEx(canny_img, cv.MORPH_CLOSE, kernel, iterations=2)
-
     contours, _ = cv.findContours(closed_img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     mask = np.zeros_like(closed_img)
     cnt_lst = []
@@ -39,7 +36,7 @@ def cube_mask(closed_img, min_area=5000):
                 # end test
 
     if valid_contours:
-        cv.drawContours(mask, valid_contours, -1, 255, thickness=cv.FILLED)
+        cv.drawContours(mask, valid_contours, -1, 255, thickness=cv.FILLED)        
     return mask
 
 def isolate_cube(frame, mask):
