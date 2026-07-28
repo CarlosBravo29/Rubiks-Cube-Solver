@@ -30,7 +30,7 @@ while True:
     canny, closed = df.get_canny(isolated_cube)
     stikers = df.detect_stickers(isolated_cube, closed)
     centroids, _ = df.get_stiker_centroids(stikers)
-    oi = df.grup_stikers(isolated_cube, centroids)
+    oi = df.group_stikers(isolated_cube, centroids)
     
     cv.imshow('Isolated_cube', isolated_cube)
     cv.imshow('Closed', closed)

@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+import math as mt
 import detect_cube_utils as cu
 
 def get_canny(isolated_cube):
@@ -56,15 +57,13 @@ def get_stiker_centroids(stikers):
 
     return centroids, stikers_contours
 
-def grup_stikers(isolated_cube, centroids):
+def group_stikers(isolated_cube, centroids):
     output_img = isolated_cube.copy()
     if len(centroids) < 7:
         return output_img
     pts = np.float32(centroids)
-
-    #x, y, w, h = cv.boundingRect(points)
-
-    for idx, (x, y) in enumerate(centroids):
+    centroids_iter = enumerate(centroids)
+    for idx, (x, y) in centroids_iter:
         center = (int(x), int(y))
 
         cv.circle(output_img, center, 10, (255, 255, 255), -1)
@@ -72,3 +71,43 @@ def grup_stikers(isolated_cube, centroids):
         cv.putText(output_img, text, (int(x) - 10, int(y) + 4), cv.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 2, cv.LINE_AA)
 
     return output_img
+
+
+class Stiker_dot():
+    def __init__(self, idx, coord):
+        self.id = idx
+        self.coord = coord
+        self.vectors = {}
+        self.corner_bu = False
+
+    def calc(self, centroids_iter):
+        for name, coord in centroids_iter:
+            v = ((coord[0] - self.coord[0]), (coord[1] - self.coord[1])) # v = (vx, vy)
+            dim = mt.hypot(v[0], v[1])
+            is_right = v[0] > 0
+            is_left  = v[0] < 0
+            is_above = v[1] > 0
+            is_below = v[1] < 0
+            angle_rad = mt.atan2(v[1], v[0])
+
+            self.vectors[name] = (v, dim, angle_rad)
+
+    def is_corner(self):
+        angles = sorted([data[2] for name, data in self.vectors.items() if name != self.id])
+        gaps = [angles[i+1] - angles[i] for i in range(len(angles) - 1)]
+        gaps.append(2 * mt.pi - (angles[-1] - angles[0]))
+        max_gap = max(gaps)
+        span = 2 * mt.pi - max_gap
+        self.corner_bu = span < ((35 * mt.pi) / 36)
+        
+        return self.corner_bu
+
+### Testing sticker grouping to detect faces by finding the maximum angular gap between points. (Works! Correctly detects corners)
+
+def test_group(my_coords = [(0,(12.25,3)),(1,(9,3)),(2,(15,5)),(4,(12.5,5.5)),(5,(6,5)),(6,(9,6)),(7,(18,7)),(8,(3,8)),(9,(15.5,8)),(10,(6,8)),(11,(13,8.5)),(12,(9.5,9)),(13,(18.5,10)),(14,(3,11)),(15,(16.25,11)),(16,(6,11)),(17,(11.5,11.5)),(18,(19.25,13.25)),(19,(14.5,13.5)),(20,(8,14)),(21,(3,14)),(22,(12,15.5)),(23,(17.5,15.5)),(24,(14,18)),(25,(11,20))]):
+    for name, coord in my_coords:
+        stiker = Stiker_dot(name, coord)
+        stiker.calc(my_coords)
+        print(f"{stiker.id}: {stiker.is_corner()}")
+
+test_group()
