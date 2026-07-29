@@ -73,12 +73,13 @@ def group_stikers(isolated_cube, centroids):
     return output_img
 
 
-class Stiker_dot():
+class Sticker_dot():
     def __init__(self, idx, coord):
         self.id = idx
         self.coord = coord
         self.vectors = {}
         self.corner_bu = False
+        self.nearest_stickers = []
 
     def calc(self, centroids_iter):
         for name, coord in centroids_iter:
@@ -98,16 +99,44 @@ class Stiker_dot():
         gaps.append(2 * mt.pi - (angles[-1] - angles[0]))
         max_gap = max(gaps)
         span = 2 * mt.pi - max_gap
-        self.corner_bu = span < ((35 * mt.pi) / 36)
+        self.corner_bu = span < ((59 * mt.pi) / 60) # 177 DEG
         
         return self.corner_bu
+
+    def find_3dots(self):
+        sorted_angle = dict(sorted(self.vectors.items(), key=lambda item: item[1][2]))
+        sorted_dim = sorted(self.vectors.items(), key=lambda item: item[1][1])
+        top_keys = [key for key, val in sorted_dim[:7]]
+
+        low_bound = (179 * mt.pi) / 90 # 358 DEG
+        up_bound = (23 * mt.pi) / 45 # 92 DEG
+
+        for name, data in sorted_angle.items():
+            if name == self.id:
+                continue
+            if len(self.nearest_stickers) == 3:
+                break
+            if ((low_bound <= data[2] <= 2 * mt.pi) or (0 <= data[2] <= up_bound)) and self.corner_bu:
+                if name in top_keys:
+                    self.nearest_stickers.append(name)
+
+        return self.nearest_stickers
+
 
 ### Testing sticker grouping to detect faces by finding the maximum angular gap between points. (Works! Correctly detects corners)
 
 def test_group(my_coords = [(0,(12.25,3)),(1,(9,3)),(2,(15,5)),(4,(12.5,5.5)),(5,(6,5)),(6,(9,6)),(7,(18,7)),(8,(3,8)),(9,(15.5,8)),(10,(6,8)),(11,(13,8.5)),(12,(9.5,9)),(13,(18.5,10)),(14,(3,11)),(15,(16.25,11)),(16,(6,11)),(17,(11.5,11.5)),(18,(19.25,13.25)),(19,(14.5,13.5)),(20,(8,14)),(21,(3,14)),(22,(12,15.5)),(23,(17.5,15.5)),(24,(14,18)),(25,(11,20))]):
+    my_stickers = []
     for name, coord in my_coords:
-        stiker = Stiker_dot(name, coord)
-        stiker.calc(my_coords)
-        print(f"{stiker.id}: {stiker.is_corner()}")
+        sticker = Sticker_dot(name, coord)
+        sticker.calc(my_coords)
+        my_stickers.append(sticker)
+        print(f"{sticker.id}: {sticker.is_corner()},   {sticker.find_3dots()}")
+    return my_stickers
 
-test_group()
+a = [(0,(12.5,2.5)),(1,(7.5,3.5)),(2,(13.75,4)),(3,(3.5,4.5)),(4,(8.5,5.5)),(5,(15.25,6)),(6,(4,6.25)),(7,(9.5,7.5)),(8,(4.5,8.5)),(9,(16.25,9.5)),(10,(10.5,10.5)),(11,(5.25,11.5)),(12,(16.5,13.5)),(13,(11,14.5)),(14,(5.75,15.5)),(15,(16.25,17.5)),(16,(11.5,18.5)),(17,(6.5,19))]
+test_group(a)
+
+def try_grid(stickers_lst):
+    for item in stickers_lst:
+        pass 
