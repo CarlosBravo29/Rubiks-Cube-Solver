@@ -1,6 +1,6 @@
 import cv2 as cv
 import detect_cube_utils as dc
-import detect_faces_utils as df
+import detect_stickers_utils as ds
 
 width_frame = 600
 height_frame = 440
@@ -25,12 +25,12 @@ while True:
     ### TEST FACES DETECTION ###
     isolated_cube = dc.find_cube(frame)
 
-    #border = df.get_boundary(isolated_cube)
-    #_, mask = df.get_inner_lines(border)
-    canny, closed = df.get_canny(isolated_cube)
-    stikers = df.detect_stickers(isolated_cube, closed)
-    centroids, _ = df.get_stiker_centroids(stikers)
-    oi = df.group_stikers(isolated_cube, centroids)
+    #border = dS.get_boundary(isolated_cube)
+    #_, mask = ds.get_inner_lines(border)
+    canny, closed = ds.get_canny(isolated_cube)
+    stikers = ds.detect_stickers(isolated_cube, closed)
+    centroids, _ = ds.get_stiker_centroids(stikers)
+    oi = ds.group_stikers(isolated_cube, centroids)
     
     cv.imshow('Isolated_cube', isolated_cube)
     cv.imshow('Closed', closed)

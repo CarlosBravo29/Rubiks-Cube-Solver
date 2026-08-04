@@ -50,3 +50,4 @@ def find_cube(frame):
     mask = cube_mask(closed)
     _, cube = isolate_cube(frame, mask)
     return cube
+
