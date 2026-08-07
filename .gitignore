@@ -3,7 +3,10 @@ old_v1.py
 __pycache__/
 *.pyc
 *$py.class
-face.py
 test_face.py
 test_ex_face.py
 test_stickers_centers.py
+test_faces_colors_cp.py
+test_profile.md
+objects.py
+translator.py

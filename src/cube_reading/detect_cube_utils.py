@@ -11,9 +11,9 @@ def get_canny(frame):
     return canny, closed
 
 def cube_mask(closed_img, min_area=5000):
+    """Generates a binary mask highlighting cube-like objects based on shape filtering"""
     contours, _ = cv.findContours(closed_img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     mask = np.zeros_like(closed_img)
-    cnt_lst = []
 
     valid_contours = []
     for cnt in contours:
@@ -23,9 +23,9 @@ def cube_mask(closed_img, min_area=5000):
             continue
 
         x, y, w, h = cv.boundingRect(cnt)
-        asperct_ratio = float(w) / h
+        aspect_ratio = float(w) / h
 
-        if 0.7 <= asperct_ratio <= 1.3:
+        if 0.7 <= aspect_ratio <= 1.3:
             fill_percentage = float(area) / (w * h)
             if fill_percentage > 0.40:
                 hull = cv.convexHull(cnt)
@@ -40,12 +40,14 @@ def cube_mask(closed_img, min_area=5000):
     return mask
 
 def isolate_cube(frame, mask):
+    """Applies a binary mask to an image and extracts the masked pixel data."""
     cube = cv.bitwise_and(frame, frame, mask=mask)
     pixels = cube[mask > 0]
     data = np.float32(pixels)
     return data, cube
 
 def find_cube(frame):
+    """Detects and isolates a cube within a frame, turning the background black."""
     canny, closed = get_canny(frame)
     mask = cube_mask(closed)
     _, cube = isolate_cube(frame, mask)

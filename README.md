@@ -29,8 +29,8 @@ flowchart LR
 
     %% Computer Vision Breakdown
     B --> B1[Isolating Cube ✅]
-    B --> B2[Face ROI Extraction ⬅️]
-    B --> B3[Color Classification]
+    B --> B2[Face ROI Extraction 🟡]
+    B --> B3[Color Classification ⬅️]
 
     %% Solve Logic Breakdown
     C --> C1[OOP Design ⬅️]
@@ -52,22 +52,39 @@ flowchart LR
     G --> G1[Instruction Interpretation]
     G --> G2[Motor Execution Routines]
 ```
+* ✅ **Completed** - The feature is fully functional and implemented.
+* ⬅️ **WIP** - Currently being developed or under active work.
+* 🟡 **In Testing** – The code/design is done and currently undergoing validation.
+* (None) **Not Started** - Planned feature; development has not yet begun.
 
 ## Tech Stack & Hardware Components
 
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![C++](https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)
+![Arduino](https://img.shields.io/badge/Arduino-00878F?style=for-the-badge&logo=arduino&logoColor=white)
+
 | Domain | Technologies / Components |
 | -------- | -------- |
-| Software & Computer Vision | Python 3.13.3, OpenCV, NumPy |
-| Microcontroller  | Arduino Mega |
-| Electronics | DRV8825 Drivers, 12V DC Power Supply |
-| Actuators | NEMA 17 Stepper Motors |
-| CAD & Mechanical | Custom 3D Printed Motor Brackets, Core Couplers, Frame Chassis |
+| **Software & Computer Vision** | Python 3.13.3, OpenCV, NumPy |
+| **Microcontroller**  | Arduino Mega |
+| **Electronics** | DRV8825 Drivers, 12V DC Power Supply |
+| **Actuators** | NEMA 17 Stepper Motors |
+| **CAD & Mechanical** | Custom 3D Printed Motor Brackets, Core Couplers, Frame Chassis |
+
 
 ## Gallery
 
 <figure>
     <img src="assets/Isolated_cube.png" alt="Isolation of the cube" width="600">
     <figcaption><i>Isolation of the cube by computer vision >> next step: extract ROIs (valid faces)</i></figcaption>
+</figure>
+  
+
+<figure>
+    <img src="assets/Rubiks_vision_v1.gif" alt="Cube faces detection and isolation" width="600">
+    <figcaption><i>Face detection and Region of Interest (ROI) generation for each detected face</i></figcaption>
 </figure>
 
 <figure>

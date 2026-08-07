@@ -50,12 +50,7 @@ def generate_quad_orientations(quad: np.ndarray) -> list[np.ndarray]:
 
 def canonical_cell_quad(column: int, row: int) -> np.ndarray:
     """Ideal 2 × 2 block inside the 3 × 3 grid."""
-    return np.array([
-        [column, row],
-        [column + 1, row],
-        [column + 1, row + 1],
-        [column, row + 1]
-    ], dtype=np.float32)
+    return np.array([[column, row], [column + 1, row], [column + 1, row + 1], [column, row + 1]], dtype=np.float32)
 
 def find_local_quads(points: np.ndarray, spacing: float) -> list[np.ndarray]:
     """Finds local groups of four points that form a 2 × 2 block."""
@@ -68,11 +63,8 @@ def find_local_quads(points: np.ndarray, spacing: float) -> list[np.ndarray]:
 
     for idx_p, point_p in enumerate(points):
         distances_p = np.linalg.norm(points - point_p, axis=1)
-        neighbors = [
-            i for i, d in enumerate(distances_p)
-            if i != idx_p and min_dist <= d <= max_dist
-        ]
-        
+        neighbors = [i for i, d in enumerate(distances_p) if i != idx_p and min_dist <= d <= max_dist]
+
         for idx_q, idx_r in combinations(neighbors, 2):
             point_q, point_r = points[idx_q], points[idx_r]
             vec_q, vec_r = point_q - point_p, point_r - point_p
@@ -102,50 +94,84 @@ def find_local_quads(points: np.ndarray, spacing: float) -> list[np.ndarray]:
 
             quad_points = points[list(sorted_idx)]
             hull = cv.convexHull(quad_points.astype(np.float32)).reshape(-1, 2)
-
             if len(hull) != 4:
                 continue
-
             area = abs(cv.contourArea(hull.astype(np.float32)))
             if area < spacing**2 * 0.18:
                 continue
-
             detected_quads.append(order_quad_cyclic(hull))
             used_index_sets.add(sorted_idx)
 
     return detected_quads
 
 def match_projected_grid(projected_grid: np.ndarray, detected_points: np.ndarray, tolerance: float) -> tuple[list[dict], float]:
-    """Compares projected grid points against actually detected centroids."""
-    possible_matches = []
-    for g_idx, proj_p in enumerate(projected_grid):
-        distances = np.linalg.norm(detected_points - proj_p, axis=1)
-        for d_idx, dist in enumerate(distances):
-            if dist <= tolerance:
-                possible_matches.append((float(dist), int(g_idx), int(d_idx)))
+    if len(projected_grid) == 0 or len(detected_points) == 0:
+        return [], float("inf")
+    differences = (projected_grid[:, np.newaxis, :] - detected_points[np.newaxis, :, :])
+    distance_matrix = np.linalg.norm(differences, axis=2)
+    grid_indices, detected_indices = np.where(distance_matrix <= tolerance)
 
-    possible_matches.sort(key=lambda item: item[0])
+    if len(grid_indices) == 0:
+        return [], float("inf")
 
-    used_grid, used_detected = set(), set()
+    distances = distance_matrix[grid_indices, detected_indices]
+    order = np.argsort(distances)
+
+    used_grid = np.zeros(len(projected_grid), dtype=bool)
+    used_detected = np.zeros(len(detected_points), dtype=bool)
+
     matches = []
 
-    for dist, g_idx, d_idx in possible_matches:
-        if g_idx in used_grid or d_idx in used_detected:
+    for position in order:
+        g_idx = int(grid_indices[position])
+        d_idx = int(detected_indices[position])
+
+        if used_grid[g_idx] or used_detected[d_idx]:
             continue
-        matches.append({"grid_index": g_idx, "detected_index": d_idx, "error": dist})
-        used_grid.add(g_idx)
-        used_detected.add(d_idx)
+
+        distance = float(distances[position])
+        matches.append({"grid_index": g_idx, "detected_index": d_idx, "error": distance})
+        used_grid[g_idx] = True
+        used_detected[d_idx] = True
 
     if not matches:
         return [], float("inf")
 
-    mean_error = float(np.mean([m["error"] for m in matches]))
+    mean_error = float(np.mean([match["error"] for match in matches]))
+
     return matches, mean_error
 
 def get_face_polygon(face: dict) -> np.ndarray:
     """Gets outer corners of a face based on its homography matrix."""
     polygon = cv.perspectiveTransform(FACE_OUTER_CORNERS.reshape(-1, 1, 2), face["homography"]).reshape(-1, 2)
     return polygon.astype(np.float32)
+
+def polygon_shape_regularity(polygon: np.ndarray, max_side_ratio: float = 1.9, min_angle: float = 50.0, max_angle: float = 130.0) -> bool:
+    """Rejects severely skewed or deformed quadrilaterals based on side ratios and internal angles."""
+    if polygon.shape != (4, 2):
+        return False
+    pts = polygon.astype(np.float64)
+    sides = [np.linalg.norm(pts[(i + 1) % 4] - pts[i]) for i in range(4)]
+
+    if min(sides) < 1e-6:
+        return False
+    if max(sides) / min(sides) > max_side_ratio:
+        return False
+
+    for i in range(4):
+        prev_pt = pts[(i - 1) % 4]
+        curr_pt = pts[i]
+        next_pt = pts[(i + 1) % 4]
+        v1 = prev_pt - curr_pt
+        v2 = next_pt - curr_pt
+        n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        if n1 < 1e-6 or n2 < 1e-6:
+            return False
+        cosine = np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)
+        angle = np.degrees(np.arccos(cosine))
+        if not (min_angle <= angle <= max_angle):
+            return False
+    return True
 
 def is_valid_face_polygon(polygon: np.ndarray, image_shape: tuple[int, ...]) -> bool:
     """Rejects degenerate, overly large, or out-of-bounds polygons."""
@@ -164,7 +190,79 @@ def is_valid_face_polygon(polygon: np.ndarray, image_shape: tuple[int, ...]) -> 
         return False
     if np.any(polygon[:, 1] < -margin_y) or np.any(polygon[:, 1] > img_h + margin_y):
         return False
+    if not polygon_shape_regularity(polygon):
+        return False
+    return True
 
+def angle_between_vectors(v1: np.ndarray, v2: np.ndarray) -> float:
+    norm_1 = np.linalg.norm(v1)
+    norm_2 = np.linalg.norm(v2)
+
+    if norm_1 < 1e-6 or norm_2 < 1e-6:
+        return 180.0
+    cosine = np.clip(np.dot(v1, v2) / (norm_1 * norm_2), -1.0, 1.0)
+
+    return float(np.degrees(np.arccos(cosine)))
+
+def candidate_grid_points(candidate: dict, detected_points: np.ndarray) -> np.ndarray | None:
+    """Organizes candidate points into a 3x3 grid matrix, returning None if incomplete."""
+    grid = np.full((3, 3, 2), np.nan, dtype=np.float32)
+
+    for match in candidate["matches"]:
+        grid_index = match["grid_index"]
+        detected_index = match["detected_index"]
+        row = grid_index // 3
+        col = grid_index % 3
+        grid[row, col] = detected_points[detected_index]
+
+    if np.isnan(grid).any():
+        return None
+    return grid
+
+def grid_direction_consistency(candidate: dict, detected_points: np.ndarray, max_direction_change: float = 22.0, max_spacing_ratio: float = 2.0) -> bool:
+    """Validates grid alignment by enforcing directional and spacing consistency across rows and columns."""
+    grid = candidate_grid_points(candidate, detected_points)
+
+    if grid is None:
+        return False
+
+    horizontal_vectors = []
+    vertical_vectors = []
+
+    for row in range(3):
+        v_left = grid[row, 1] - grid[row, 0]
+        v_right = grid[row, 2] - grid[row, 1]
+        direction_change = angle_between_vectors(v_left, v_right)
+
+        if direction_change > max_direction_change:
+            return False
+
+        horizontal_vectors.extend([v_left, v_right])
+
+    for col in range(3):
+        v_top = grid[1, col] - grid[0, col]
+        v_bottom = grid[2, col] - grid[1, col]
+        direction_change = angle_between_vectors(v_top, v_bottom)
+        if direction_change > max_direction_change:
+            return False
+        vertical_vectors.extend([v_top, v_bottom])
+
+    horizontal_lengths = np.array([np.linalg.norm(vector) for vector in horizontal_vectors], dtype=np.float32)
+    vertical_lengths = np.array([np.linalg.norm(vector) for vector in vertical_vectors], dtype=np.float32)
+
+    if np.min(horizontal_lengths) < 1e-6:
+        return False
+
+    if np.min(vertical_lengths) < 1e-6:
+        return False
+
+    horizontal_ratio = (np.max(horizontal_lengths) / np.min(horizontal_lengths))
+    vertical_ratio = (np.max(vertical_lengths) / np.min(vertical_lengths))
+
+    if horizontal_ratio > max_spacing_ratio:
+        return False
+    if vertical_ratio > max_spacing_ratio:
+        return False
     return True
 
 def detect_face_candidates(points: np.ndarray, image_shape: tuple[int, ...], min_matches: int = 7) -> list[dict]:
@@ -177,7 +275,7 @@ def detect_face_candidates(points: np.ndarray, image_shape: tuple[int, ...], min
         return []
 
     local_quads = find_local_quads(points, spacing)
-    matching_tol, max_mean_err = spacing * 0.40, spacing * 0.33
+    matching_tol, max_mean_err = spacing * 0.27, spacing * 0.18
     candidates_by_points = {}
 
     for img_quad in local_quads:
@@ -198,6 +296,8 @@ def detect_face_candidates(points: np.ndarray, image_shape: tuple[int, ...], min
                 matched_idx = tuple(sorted(m["detected_index"] for m in matches))
                 candidate = {"homography": homography, "projected_grid": proj_grid, "matches": matches, "matched_indices": matched_idx, "num_matches": len(matches), "mean_error": mean_err, "spacing": spacing}
 
+                if not grid_direction_consistency(candidate, points, max_direction_change=22.0, max_spacing_ratio=2.0):
+                    continue
                 polygon = get_face_polygon(candidate)
                 if not is_valid_face_polygon(polygon, image_shape):
                     continue
